@@ -1,21 +1,8 @@
-package com.example.demo.Model;
+package com.example.demo.DTO;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import jakarta.annotation.Generated;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
-
-@Entity
-public class User {
+public class UserDTO {
     
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+
     private int Id;
 
     private String firstName;
@@ -40,11 +27,14 @@ public class User {
 
     private String profile;
 
-     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<SchedulingBooking> schedulingBookings = new ArrayList<>();
+    public UserDTO(){
+        super();
 
-    public User(int id, String firstName, String lastName, String gender, String email, String mobileNo,
-            String password, String pickupLocation, String dropLocation, String shiftTime, String status, String profile,List<SchedulingBooking> schedulingBookings) {
+    }
+
+    public UserDTO(int id, String firstName, String lastName, String gender, String email, String mobileNo,
+            String password, String pickupLocation, String dropLocation, String shiftTime, String status,
+            String profile) {
         Id = id;
         this.firstName = firstName;
         this.lastName = lastName;
@@ -55,9 +45,8 @@ public class User {
         this.pickupLocation = pickupLocation;
         this.dropLocation = dropLocation;
         this.shiftTime = shiftTime;
-        this.status=status;
-        this.profile=profile;
-        this.schedulingBookings=schedulingBookings;
+        this.status = status;
+        this.profile = profile;
     }
 
     public int getId() {
@@ -140,10 +129,6 @@ public class User {
         this.shiftTime = shiftTime;
     }
 
-    public User(){
-        super();
-    }
-
     public String getStatus() {
         return status;
     }
@@ -160,17 +145,7 @@ public class User {
         this.profile = profile;
     }
 
-    public List<SchedulingBooking> getSchedulingBookings() {
-        return schedulingBookings;
-    }
-
-    public void setSchedulingBookings(List<SchedulingBooking> schedulingBookings) {
-        this.schedulingBookings = schedulingBookings;
-    }
-
     
 
-
-
-
+    
 }

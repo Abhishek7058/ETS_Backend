@@ -44,8 +44,6 @@ public class DriverController {
         @RequestParam("licenseExpiryDate")          Long licenseExpiryDate,
         @RequestParam("idProofType")                String idProofType
     ) throws IOException {
-
-        // Only upload each file if it's provided
         String driverImgUrl       = (driverImg       != null && !driverImg.isEmpty())
             ? cloudinaryService.upload(driverImg)       : null;
         String licenseFrontUrl    = (licenseFrontImg != null && !licenseFrontImg.isEmpty())
@@ -60,7 +58,6 @@ public class DriverController {
             ? cloudinaryService.upload(pccFormImg)      : null;
             String status = "DRIVER";
 
-        // Build and save the Driver entity
         Driver driver = new Driver(
             driverName,
             mobileNumber,

@@ -10,31 +10,31 @@ public class Driver {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id; // auto-generated
+    private int id; 
 
     private String DriverName;
 
     private Long MobileNumber;
 
-    private String DriverImg; // image
+    private String DriverImg; 
 
-    private String DOB; // date of birth
+    private String DOB; 
 
     private String LicenseIdNum;
 
     private Long LicenseExpiryDate;
 
-    private String LicenseFrontImg; // image
+    private String LicenseFrontImg; 
 
-    private String LicenseBackImg; // image
+    private String LicenseBackImg; 
 
     private String IdProofType;
 
-    private String IdProofFrontImg; // image
+    private String IdProofFrontImg; 
 
-    private String IdProofBackImg; // image
+    private String IdProofBackImg; 
 
-    private String PccFormImg; // Police Clearance Certificate
+    private String PccFormImg; 
 
     private String status;
 

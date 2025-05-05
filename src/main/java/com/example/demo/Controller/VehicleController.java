@@ -50,13 +50,11 @@ public class VehicleController {
         return new ResponseEntity<>(saved, HttpStatus.CREATED);
     }
 
-    // READ ALL
     @GetMapping
     public List<Vehicle> getAllVehicles() {
         return vehicleService.getAllVehicles();
     }
 
-    // READ ONE
     @GetMapping("/{id}")
     public ResponseEntity<Vehicle> getVehicle(@PathVariable Long id) {
         Optional<Vehicle> vehicle = vehicleService.getVehicleById(id);
@@ -64,7 +62,6 @@ public class VehicleController {
                 .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
     }
 
-    // UPDATE
     @PutMapping("/{id}")
     public ResponseEntity<Vehicle> updateVehicle(
             @PathVariable Long id,
@@ -98,7 +95,6 @@ public class VehicleController {
         return new ResponseEntity<>(updated, HttpStatus.OK);
     }
 
-    // DELETE
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteVehicle(@PathVariable Long id) {
         vehicleService.deleteVehicle(id);

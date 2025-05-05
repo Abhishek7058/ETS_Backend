@@ -22,9 +22,7 @@ public class CloudinaryService {
 
     public String upload(MultipartFile file) {
         try {
-            // Upload the file and get the result as a Map
             Map<String, Object> uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.emptyMap());
-            // Extract the URL from the Map and return it as a String
             return uploadResult.get("url").toString(); 
         } catch (IOException e) {
             e.printStackTrace();
