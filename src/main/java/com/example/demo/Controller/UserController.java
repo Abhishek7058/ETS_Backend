@@ -3,10 +3,13 @@ package com.example.demo.Controller;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.demo.DTO.UserDTO;
+import com.example.demo.DTO.UserLoginRequestDTO;
+import com.example.demo.DTO.UserLoginResponseDTO;
 import com.example.demo.Model.User;
 import com.example.demo.Service.UserService;
 
@@ -59,6 +62,11 @@ public class UserController {
 
     @GetMapping("/empCount")
     public int getAllCount(){
-        return this.userService.countOfAllUser();
+        return this.userService.countOfAllUser();    }
+
+    @PostMapping("/etsLogin")
+    public ResponseEntity<UserLoginResponseDTO> login(@RequestBody UserLoginRequestDTO loginDTO) {
+        UserLoginResponseDTO response = userService.login(loginDTO);
+        return ResponseEntity.ok(response);
     }
 }

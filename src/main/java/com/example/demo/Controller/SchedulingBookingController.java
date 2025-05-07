@@ -33,6 +33,7 @@ import com.example.demo.Model.User;
 import com.example.demo.Repository.ScheduleBookingRepository;
 import com.example.demo.Repository.UserRepository;
 import com.example.demo.Service.EmailService;
+import com.example.demo.Service.GeocodingService;
 import com.example.demo.Service.PriceService;
 import com.example.demo.Service.ScheduleBookingService;
 import com.example.demo.Service.UserService;
@@ -46,6 +47,9 @@ public class SchedulingBookingController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private GeocodingService geocodingService;
 
     @Autowired
     private PriceService priceService;
@@ -102,6 +106,12 @@ public class SchedulingBookingController {
         return ResponseEntity.ok(updatedBooking);
     }
 
+    @PutMapping("/{bookingId}/assignDriver/{vendorDriverId}")
+    public SchedulingBooking assignVendorDriver( @PathVariable int bookingId, @PathVariable int vendorDriverId){
+        SchedulingBooking schedulingBooking = this.scheduleBookingService.assignDriverBooking(bookingId, vendorDriverId);
+        return schedulingBooking;
+    }
+
     @GetMapping("/byUserId/{id}")
     public List<SchedulingBooking> getBookingByUserId(@PathVariable int id) {
         return this.scheduleBookingService.getBookingByUserId(id);
@@ -142,7 +152,7 @@ public class SchedulingBookingController {
 
     @PostMapping("/etsCab1")
     public Map<String, Object> getCabChoose(@RequestParam String pickUpLocation, @RequestParam String dropLocation,
-            @RequestParam String time, @RequestParam String returnTime, @RequestParam String shiftTime) {
+            @RequestParam String time, @RequestParam String returnTime, @RequestParam String shiftTime, @RequestParam List<LocalDate> dates) {
 
         Map<String, Object> response = new HashMap<>();
 
@@ -183,6 +193,7 @@ public class SchedulingBookingController {
         response.put("sedan", price.getSedan());
         response.put("suv", price.getSuv());
         response.put("distace", price.getDistance());
+        response.put("dates", dates);
         return response;
     }
 
@@ -414,6 +425,24 @@ public class SchedulingBookingController {
     public SchedulingBookingDTO getById(@PathVariable int id){
         return this.scheduleBookingService.getByScheduleBookingId(id);
     }
+
+
+
+
+    // @GetMapping("/coordinates")
+    // public ResponseEntity<Map<String, Double>> getCoordinates(@RequestParam String address) {
+    //     Map<String, Double> coords = geocodingService.getLatLngFromAddress(address);
+    //     return ResponseEntity.ok(coords);
+    // }
+
+
+
+//     @PutMapping("/{bookingId}/assignVendorDriver/{vendorDriverId}")
+//     public SchedulingBooking assignVendorDriver(@PathVariable int vendorDriverId, @PathVariable int bookingId){
+// return this.scheduleBookingService.assignDriverBooking(bookingId, vendorDriverId);
+//     }
+
+
 
 
 

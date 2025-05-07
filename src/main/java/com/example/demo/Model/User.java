@@ -40,11 +40,13 @@ public class User {
 
     private String profile;
 
+    private String role ;
+
      @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SchedulingBooking> schedulingBookings = new ArrayList<>();
 
     public User(int id, String firstName, String lastName, String gender, String email, String mobileNo,
-            String password, String pickupLocation, String dropLocation, String shiftTime, String status, String profile,List<SchedulingBooking> schedulingBookings) {
+            String password, String pickupLocation, String dropLocation, String shiftTime, String status, String profile,List<SchedulingBooking> schedulingBookings, String role) {
         Id = id;
         this.firstName = firstName;
         this.lastName = lastName;
@@ -57,6 +59,7 @@ public class User {
         this.shiftTime = shiftTime;
         this.status=status;
         this.profile=profile;
+        this.role=role;
         this.schedulingBookings=schedulingBookings;
     }
 
@@ -167,6 +170,16 @@ public class User {
     public void setSchedulingBookings(List<SchedulingBooking> schedulingBookings) {
         this.schedulingBookings = schedulingBookings;
     }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
+    }
+
+    
 
     
 

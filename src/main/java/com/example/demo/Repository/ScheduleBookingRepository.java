@@ -18,4 +18,6 @@ List<SchedulingBooking> findByUserId(int userId);
 List<SchedulingBookingDTO> getUserById(int userId);
 
 List<SchedulingBooking> findByVendorDriverId(int vendorDriverId);
+
+List<SchedulingBooking> findByVendorDriverIdOrderByTimeAsc(int vendorDriverId);
 }

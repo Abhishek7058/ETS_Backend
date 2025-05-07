@@ -70,6 +70,8 @@ public class SchedulingBooking {
 
     private String bookingType="SCHEDULE";
 
+    private String status;
+
       @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
@@ -82,10 +84,11 @@ public class SchedulingBooking {
     public SchedulingBooking(int id, String pickUpLocation, String dropLocation, String time, String returnTime,
             Long vendorId, int vendorDriverId, Vendor vendor, String baseAmount, String finalAmount,
             String serviceCharge, String gst, VendorDriver vendorDriver, String shiftTime, List<LocalDate> dateOfList,
-            String bookingType, User user, List<ScheduledDate> scheduledDates, String cabType, String distance, int sittingExcepatation, String bookId, int partnerSharing ) {
+            String bookingType, User user, List<ScheduledDate> scheduledDates, String cabType, String distance, int sittingExcepatation, String bookId, int partnerSharing, String status ) {
         this.id = id;
         this.pickUpLocation = pickUpLocation;
         this.dropLocation = dropLocation;
+        this.status=status;
         this.time = time;
         this.returnTime = returnTime;
         this.vendorId = vendorId;
@@ -143,6 +146,8 @@ public class SchedulingBooking {
     public void setTime(String time) {
         this.time = time;
     }
+
+    
 
     public String getReturnTime() {
         return returnTime;
@@ -294,6 +299,14 @@ public class SchedulingBooking {
 
     public void setPartnerSharing(int partnerSharing) {
         this.partnerSharing = partnerSharing;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
 

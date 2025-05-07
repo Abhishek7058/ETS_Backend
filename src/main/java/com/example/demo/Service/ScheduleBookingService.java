@@ -3,11 +3,14 @@ package com.example.demo.Service;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriUtils;
 
 import com.example.demo.DTO.ScheduleDateBookingDTO;
 import com.example.demo.DTO.SchedulingBookingDTO;
@@ -41,6 +44,11 @@ public class ScheduleBookingService {
 
     @Autowired
     private RestTemplate restTemplate;
+
+    private final String apiKey = "AIzaSyCelDo4I5cPQ72TfCTQW-arhPZ7ALNcp8w"; // Replace with your Google API key
+
+
+   
 
      @Transactional
     public SchedulingBooking createSchedule(
@@ -102,9 +110,7 @@ public class ScheduleBookingService {
         }
         booking.setVendorDriverId(vendorDriverId);
         return scheduleBookingRepository.save(booking);
-
-    
-    }
+}
 
 
     public SchedulingBookingDTO getBookingWithVendorDTO(int bookingId) {
@@ -443,6 +449,8 @@ public ScheduledDate updateStatusByUserIdAndDate(int userId, LocalDate backendDa
 }
 
 
+
+ 
 
 
    
