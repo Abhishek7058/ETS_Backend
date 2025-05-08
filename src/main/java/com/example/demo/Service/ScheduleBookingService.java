@@ -99,19 +99,71 @@ public class ScheduleBookingService {
         return scheduleBookingRepository.save(booking);
     }
 
-    public SchedulingBooking assignDriverBooking(int bookingId, int vendorDriverId ){
-        SchedulingBooking booking = scheduleBookingRepository.findById(bookingId)
-        .orElseThrow(() -> new RuntimeException("Booking not found with ID: " + bookingId));  
+    public SchedulingBooking assignDriverBooking(int bookingId, int vendorDriverId) {
+        SchedulingBooking newBooking = scheduleBookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found with ID: " + bookingId));
+
+        // Verify driver exists
         String driverUrl = "http://localhost:8080/vendorDriver/" + vendorDriverId;
         try {
             restTemplate.getForObject(driverUrl, Vendor.class);
         } catch (HttpClientErrorException.NotFound e) {
             throw new RuntimeException("Vendor not found with ID: " + vendorDriverId);
         }
-        booking.setVendorDriverId(vendorDriverId);
-        return scheduleBookingRepository.save(booking);
-}
 
+        // Get all existing bookings for this driver
+        List<SchedulingBooking> existingBookings = scheduleBookingRepository.findByVendorDriverId(vendorDriverId);
+
+        // Check for route overlap with existing bookings
+        for (SchedulingBooking existingBooking : existingBookings) {
+            if (isRouteOverlapping(
+                existingBooking.getPickUpLocation(),
+                existingBooking.getDropLocation(),
+                newBooking.getPickUpLocation(),
+                newBooking.getDropLocation()
+            )) {
+                throw new RuntimeException("Cannot assign driver - route overlaps with existing booking ID: " + existingBooking.getId());
+            }
+        }
+        
+
+        newBooking.setVendorDriverId(vendorDriverId);
+        return scheduleBookingRepository.save(newBooking);
+    }
+
+    private boolean isRouteOverlapping(String existingPickup, String existingDrop, String newPickup, String newDrop) {
+        try {
+            // Build URL for Google Maps Directions API
+            String url = UriComponentsBuilder.fromHttpUrl("https://maps.googleapis.com/maps/api/directions/json")
+                .queryParam("origin", UriUtils.encode(existingPickup, "UTF-8"))
+                .queryParam("destination", UriUtils.encode(existingDrop, "UTF-8"))
+                .queryParam("waypoints", "via:" + UriUtils.encode(newPickup, "UTF-8") + "|via:" + UriUtils.encode(newDrop, "UTF-8"))
+                .queryParam("key", apiKey)
+                .build()
+                .toString();
+
+            // Make API call
+            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            
+            // Check if the route is valid and doesn't have too much deviation
+            if (response != null && "OK".equals(response.get("status"))) {
+                List<Map<String, Object>> routes = (List<Map<String, Object>>) response.get("routes");
+                if (routes != null && !routes.isEmpty()) {
+                    Map<String, Object> route = routes.get(0);
+                    List<Map<String, Object>> legs = (List<Map<String, Object>>) route.get("legs");
+                    
+                    // If the route exists and is reasonable, consider it overlapping
+                    return true;
+                }
+            }
+            
+            return false;
+        } catch (Exception e) {
+            // Log the error and return false to be safe
+            System.err.println("Error checking route overlap: " + e.getMessage());
+            return false;
+        }
+    }
 
     public SchedulingBookingDTO getBookingWithVendorDTO(int bookingId) {
     SchedulingBooking booking = scheduleBookingRepository.findById(bookingId)

@@ -152,7 +152,7 @@ public class SchedulingBookingController {
 
     @PostMapping("/etsCab1")
     public Map<String, Object> getCabChoose(@RequestParam String pickUpLocation, @RequestParam String dropLocation,
-            @RequestParam String time, @RequestParam String returnTime, @RequestParam String shiftTime, @RequestParam List<LocalDate> dates) {
+            @RequestParam String time, @RequestParam(required = false) String returnTime, @RequestParam String shiftTime, @RequestParam List<LocalDate> dates) {
 
         Map<String, Object> response = new HashMap<>();
 
@@ -212,6 +212,9 @@ public class SchedulingBookingController {
 
         double totalDistance = Double.parseDouble(distance);
         double baseFare = 220.0;
+
+
+
 
         double hatchbackRate = Double.parseDouble(hatchback);
         double sedanRate = Double.parseDouble(sedan);
