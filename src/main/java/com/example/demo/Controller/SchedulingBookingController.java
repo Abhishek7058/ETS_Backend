@@ -23,20 +23,19 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestTemplate;
 
 import com.example.demo.DTO.SchedulingBookingDTO;
 import com.example.demo.Model.Booking;
 import com.example.demo.Model.Price;
 import com.example.demo.Model.ScheduledDate;
 import com.example.demo.Model.SchedulingBooking;
-import com.example.demo.Model.User;
+import com.example.demo.Model.CarRentalUser;
 import com.example.demo.Repository.ScheduleBookingRepository;
-import com.example.demo.Repository.UserRepository;
 import com.example.demo.Service.EmailService;
 import com.example.demo.Service.GeocodingService;
 import com.example.demo.Service.PriceService;
 import com.example.demo.Service.ScheduleBookingService;
-import com.example.demo.Service.UserService;
 
 @RestController
 @RequestMapping("/schedule")
@@ -45,16 +44,14 @@ public class SchedulingBookingController {
     @Autowired
     private ScheduleBookingService scheduleBookingService;
 
-    @Autowired
-    private UserService userService;
+    
 
     @Autowired
     private GeocodingService geocodingService;
 
     @Autowired
     private PriceService priceService;
-    @Autowired
-    private UserRepository userRepository;
+   
 
     @Autowired
     private ScheduleBookingRepository scheduleBookingRepository;
@@ -62,6 +59,9 @@ public class SchedulingBookingController {
 
     @Autowired
     private EmailService emailService;
+
+    @Autowired
+    private RestTemplate restTemplate;
 
     // @PostMapping("/confirmBooking")
     // public ResponseEntity<SchedulingBooking> createScheduleBooking(
@@ -328,14 +328,16 @@ public class SchedulingBookingController {
         }
         booking.setScheduledDates(scheduledDateList);
 
-        User user = this.userRepository.findById(userId).orElse(null);
-        if (user == null) {
+        String userServiceUrl = "http://localhost:8080/auth/getCarRentalUserById/" + userId;
+        CarRentalUser user = restTemplate.getForObject(userServiceUrl, CarRentalUser.class);  
+        System.out.println("USER"+user);
+              if (user == null) {
             response.put("status", "error");
             response.put("message", "User not found");
             return response;
         }
 
-        booking.setUser(user);
+        booking.setCarRentalUserId(userId);
 
         scheduleBookingRepository.save(booking);
 
@@ -360,7 +362,7 @@ public class SchedulingBookingController {
         emailContent.append("<html><body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;'>")
                 .append("<div style='background-color: #f8f9fa; padding: 20px; border-radius: 5px;'>")
                 .append("<h2 style='color: #2c3e50; margin-top: 0;'>Booking Confirmation</h2>")
-                .append("<p>Dear " + booking.getUser().getFirstName() + ",</p>")
+                // .append("<p>Dear " + booking.getUser().getUserName() + ",</p>")
                 .append("<p style='margin-bottom: 20px;'>Your booking has been successfully confirmed. Here are your booking details:</p>")
                 .append("<table style='width: 100%; border-collapse: collapse; margin-bottom: 20px; background-color: #fff;'>")
                 .append("<tr style='background-color: #2c3e50; color: white;'>")

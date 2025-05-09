@@ -72,9 +72,12 @@ public class SchedulingBooking {
 
     private String status;
 
-      @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+   
+
+    @Transient
+    private CarRentalUser carRentaluser;
+
+    private int carRentalUserId;
 
     @OneToMany(mappedBy = "schedulingBooking", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ScheduledDate> scheduledDates = new ArrayList<>();
@@ -84,7 +87,7 @@ public class SchedulingBooking {
     public SchedulingBooking(int id, String pickUpLocation, String dropLocation, String time, String returnTime,
             Long vendorId, int vendorDriverId, Vendor vendor, String baseAmount, String finalAmount,
             String serviceCharge, String gst, VendorDriver vendorDriver, String shiftTime, List<LocalDate> dateOfList,
-            String bookingType, User user, List<ScheduledDate> scheduledDates, String cabType, String distance, int sittingExcepatation, String bookId, int partnerSharing, String status ) {
+            String bookingType, CarRentalUser carRentaluser, List<ScheduledDate> scheduledDates, String cabType, String distance, int sittingExcepatation, String bookId, int partnerSharing, String status, int carRentalUserId ) {
         this.id = id;
         this.pickUpLocation = pickUpLocation;
         this.dropLocation = dropLocation;
@@ -102,7 +105,7 @@ public class SchedulingBooking {
         this.shiftTime = shiftTime;
         this.dateOfList = dateOfList;
         this.bookingType = bookingType;
-        this.user = user;
+        this.carRentaluser=carRentaluser;
         this.scheduledDates = scheduledDates;
         this.cabType=cabType;
         this.distance=distance;
@@ -181,12 +184,12 @@ public class SchedulingBooking {
         this.bookingType = bookingType;
     }
 
-    public User getUser() {
-        return user;
+    public CarRentalUser getUser() {
+        return carRentaluser;
     }
 
-    public void setUser(User user) {
-        this.user = user;
+    public void setUser(CarRentalUser carRentalUser) {
+        this.carRentaluser = carRentalUser;
     }
 
     public List<ScheduledDate> getScheduledDates() {
@@ -308,6 +311,16 @@ public class SchedulingBooking {
     public void setStatus(String status) {
         this.status = status;
     }
+
+    public int getCarRentalUserId() {
+        return carRentalUserId;
+    }
+
+    public void setCarRentalUserId(int carRentalUserId) {
+        this.carRentalUserId = carRentalUserId;
+    }
+
+    
 
 
     

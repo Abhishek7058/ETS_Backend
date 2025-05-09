@@ -13,7 +13,7 @@ import com.example.demo.Model.SchedulingBooking;
 @Repository
 public interface ScheduleBookingRepository extends JpaRepository<SchedulingBooking, Integer>{
   
-List<SchedulingBooking> findByUserId(int userId);
+List<SchedulingBooking> findByCarRentalUserId(int userId);
 
 List<SchedulingBookingDTO> getUserById(int userId);
 

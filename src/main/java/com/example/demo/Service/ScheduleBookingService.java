@@ -18,14 +18,15 @@ import com.example.demo.DTO.UserDTO;
 import com.example.demo.DTO.VendorDTO;
 import com.example.demo.DTO.VendorDriverDTO;
 import com.example.demo.Model.Booking;
+import com.example.demo.Model.CarRentalUser;
 import com.example.demo.Model.ScheduledDate;
 import com.example.demo.Model.SchedulingBooking;
-import com.example.demo.Model.User;
+import com.example.demo.Model.CarRentalUser;
 import com.example.demo.Model.Vendor;
 import com.example.demo.Model.VendorDriver;
 import com.example.demo.Repository.ScheduleBookingRepository;
 import com.example.demo.Repository.ScheduleDates;
-import com.example.demo.Repository.UserRepository;
+// import com.example.demo.Repository.UserRepository;
 
 import jakarta.transaction.Transactional;
 
@@ -33,8 +34,8 @@ import jakarta.transaction.Transactional;
 public class ScheduleBookingService {
     
 
-    @Autowired
-    private UserRepository userRepository;
+    // @Autowired
+    // private UserRepository userRepository;
 
     @Autowired
     private ScheduleBookingRepository scheduleBookingRepository;
@@ -60,8 +61,11 @@ public class ScheduleBookingService {
             String shiftTime,
             List<LocalDate> dates
     ) {
-        User user = userRepository.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        String userServiceUrl = "http://localhost:8080/auth/getCarRentalUserById/" + userId;
+        CarRentalUser user = restTemplate.getForObject(userServiceUrl, CarRentalUser.class);
+        if (user == null) {
+            throw new IllegalArgumentException("User not found");
+        }
 
         SchedulingBooking booking = new SchedulingBooking();
         booking.setPickUpLocation(pickUpLocation);
@@ -166,75 +170,70 @@ public class ScheduleBookingService {
     }
 
     public SchedulingBookingDTO getBookingWithVendorDTO(int bookingId) {
-    SchedulingBooking booking = scheduleBookingRepository.findById(bookingId)
+        SchedulingBooking booking = scheduleBookingRepository.findById(bookingId)
                         .orElseThrow(() -> new RuntimeException("Booking not found"));
 
-    String vendorServiceUrl = "http://localhost:8080/vendors/" + booking.getVendorId();
-    String vendorDriverServiceUrl = "http://localhost:8080/vendorDriver/" + booking.getVendorDriverId();
+        String vendorServiceUrl = "http://localhost:8080/vendors/" + booking.getVendorId();
+        String vendorDriverServiceUrl = "http://localhost:8080/vendorDriver/" + booking.getVendorDriverId();
+        String userServiceUrl = "http://localhost:8080/auth/getCarRentalUserById/" + booking.getUser().getId();
 
-    Vendor vendor = restTemplate.getForObject(vendorServiceUrl, Vendor.class);
-    VendorDriver vendorDriver = restTemplate.getForObject(vendorDriverServiceUrl, VendorDriver.class);
+        Vendor vendor = restTemplate.getForObject(vendorServiceUrl, Vendor.class);
+        VendorDriver vendorDriver = restTemplate.getForObject(vendorDriverServiceUrl, VendorDriver.class);
+        CarRentalUser user = restTemplate.getForObject(userServiceUrl, CarRentalUser.class);
 
-    booking.setVendor(vendor);
-    booking.setVendorDriver(vendorDriver);
+        booking.setVendor(vendor);
+        booking.setVendorDriver(vendorDriver);
 
-    SchedulingBookingDTO dto = new SchedulingBookingDTO();
-    dto.setId(booking.getId());
-    dto.setPickUpLocation(booking.getPickUpLocation());
-    dto.setDropLocation(booking.getDropLocation());
-    dto.setTime(booking.getTime());
-    dto.setReturnTime(booking.getReturnTime());
-    dto.setShiftTime(booking.getShiftTime());
-    dto.setBookingType(booking.getBookingType());
-    dto.setDateOfList(booking.getDateOfList());
+        SchedulingBookingDTO dto = new SchedulingBookingDTO();
+        dto.setId(booking.getId());
+        dto.setPickUpLocation(booking.getPickUpLocation());
+        dto.setDropLocation(booking.getDropLocation());
+        dto.setTime(booking.getTime());
+        dto.setReturnTime(booking.getReturnTime());
+        dto.setShiftTime(booking.getShiftTime());
+        dto.setBookingType(booking.getBookingType());
+        dto.setDateOfList(booking.getDateOfList());
 
-    VendorDTO vendorDTO = new VendorDTO();
-    vendorDTO.setId(vendor.getId());
-    vendorDTO.setVendorCompanyName(vendor.getVendorCompanyName());
-    vendorDTO.setContactNo(vendor.getContactNo());
-    vendorDTO.setAlternateMobileNo(vendor.getAlternateMobileNo());
-    vendorDTO.setCity(vendor.getCity());
-    vendorDTO.setVendorEmail(vendor.getVendorEmail());
-    dto.setVendor(vendorDTO);
+        VendorDTO vendorDTO = new VendorDTO();
+        vendorDTO.setId(vendor.getId());
+        vendorDTO.setVendorCompanyName(vendor.getVendorCompanyName());
+        vendorDTO.setContactNo(vendor.getContactNo());
+        vendorDTO.setAlternateMobileNo(vendor.getAlternateMobileNo());
+        vendorDTO.setCity(vendor.getCity());
+        vendorDTO.setVendorEmail(vendor.getVendorEmail());
+        dto.setVendor(vendorDTO);
 
-    VendorDriverDTO driverDTO = new VendorDriverDTO();
-    driverDTO.setVendorDriverId(vendorDriver.getVendorDriverId());
-    driverDTO.setDriverName(vendorDriver.getDriverName());
-    driverDTO.setContactNo(vendorDriver.getContactNo());
-    driverDTO.setAltContactNo(vendorDriver.getAltContactNo());
-    dto.setVendorDriver(driverDTO);
+        VendorDriverDTO driverDTO = new VendorDriverDTO();
+        driverDTO.setVendorDriverId(vendorDriver.getVendorDriverId());
+        driverDTO.setDriverName(vendorDriver.getDriverName());
+        driverDTO.setContactNo(vendorDriver.getContactNo());
+        driverDTO.setAltContactNo(vendorDriver.getAltContactNo());
+        dto.setVendorDriver(driverDTO);
 
-    User user = booking.getUser();
-    UserDTO userDTO = new UserDTO();
-    userDTO.setId(user.getId());
-    userDTO.setFirstName(user.getFirstName());
-    userDTO.setLastName(user.getLastName());
-    userDTO.setEmail(user.getEmail());
-    userDTO.setMobileNo(user.getMobileNo());
-    userDTO.setPickupLocation(user.getPickupLocation());
-    userDTO.setDropLocation(user.getDropLocation());
-    userDTO.setShiftTime(user.getShiftTime());
-    userDTO.setStatus(user.getStatus());
-    
-    
-    userDTO.setEmail(user.getEmail());
-    dto.setUser(userDTO);
+        UserDTO userDTO = new UserDTO();
+        userDTO.setId(user.getId());
+        userDTO.setUserName(user.getUserName());
+        userDTO.setLastName(user.getLastName());
+        userDTO.setEmail(user.getEmail());
+        userDTO.setGender(user.getGender());
+        userDTO.setPhone(user.getPhone());
+        dto.setUser(userDTO);
 
-    List<ScheduleDateBookingDTO> scheduledDateDTOs = booking.getScheduledDates().stream().map(sd -> {
-        ScheduleDateBookingDTO sdDTO = new ScheduleDateBookingDTO();
-        sdDTO.setId(sd.getId());
-        sdDTO.setDate(sd.getDate());
-        return sdDTO;
-    }).toList();
-    dto.setScheduledDates(scheduledDateDTOs);
+        List<ScheduleDateBookingDTO> scheduledDateDTOs = booking.getScheduledDates().stream().map(sd -> {
+            ScheduleDateBookingDTO sdDTO = new ScheduleDateBookingDTO();
+            sdDTO.setId(sd.getId());
+            sdDTO.setDate(sd.getDate());
+            return sdDTO;
+        }).toList();
+        dto.setScheduledDates(scheduledDateDTOs);
 
-    return dto;
-}
+        return dto;
+    }
 
 
 
 public List<SchedulingBooking> getBookingByUserId(int userId){
-    return this.scheduleBookingRepository.findByUserId(userId);
+    return this.scheduleBookingRepository.findByCarRentalUserId(userId);
 }
 
 public SchedulingBookingDTO getByScheduleBookingId(int id){
@@ -282,19 +281,22 @@ try {
     dtoS.setVendorDriver(null); 
 }
 
-User user = this.userRepository.findById(schedulingBooking.getUser().getId()).orElse(null);
-if (user != null) {
-    UserDTO userDTO = new UserDTO();
-    userDTO.setId(user.getId());
-    userDTO.setFirstName(user.getFirstName());
-    userDTO.setLastName(user.getLastName());
-    userDTO.setEmail(user.getEmail());
-    userDTO.setMobileNo(user.getMobileNo());
-    userDTO.setPickupLocation(user.getPickupLocation());
-    userDTO.setDropLocation(user.getDropLocation());
-    userDTO.setShiftTime(user.getShiftTime());
-    userDTO.setStatus(user.getStatus());
-    dtoS.setUser(userDTO);
+try {
+    String userServiceUrl = "http://localhost:8080/auth/getCarRentalUserById/" + schedulingBooking.getUser().getId();
+    CarRentalUser user = restTemplate.getForObject(userServiceUrl, CarRentalUser.class);
+    if (user != null) {
+        UserDTO userDTO = new UserDTO();
+        userDTO.setId(user.getId());
+        userDTO.setUserName(user.getUserName());
+        userDTO.setLastName(user.getLastName());
+        userDTO.setEmail(user.getEmail());
+        userDTO.setGender(user.getGender());
+        userDTO.setPhone(user.getPhone());
+        dtoS.setUser(userDTO);
+    }
+} catch (Exception e) {
+    System.out.println("User not found for ID: " + schedulingBooking.getUser().getId());
+    dtoS.setUser(null);
 }
 
 List<ScheduleDateBookingDTO> scheduledDateDTOs = schedulingBooking.getScheduledDates().stream().map(sd -> {
@@ -323,7 +325,7 @@ dtoS.setScheduledDates(scheduledDateDTOs);
 // }
 
 public List<SchedulingBookingDTO> findByUserId(int userId) {
-    List<SchedulingBooking> bookings = this.scheduleBookingRepository.findByUserId(userId);
+    List<SchedulingBooking> bookings = this.scheduleBookingRepository.findByCarRentalUserId(userId);
     List<SchedulingBookingDTO> dtoList = new ArrayList<>();
 
     for (SchedulingBooking schedulingBooking : bookings) {
@@ -370,19 +372,22 @@ public List<SchedulingBookingDTO> findByUserId(int userId) {
             schedulingBookingDTO.setVendorDriver(null); 
         }
 
-        User user = this.userRepository.findById(userId).orElse(null);
-        if (user != null) {
-            UserDTO userDTO = new UserDTO();
-            userDTO.setId(user.getId());
-            userDTO.setFirstName(user.getFirstName());
-            userDTO.setLastName(user.getLastName());
-            userDTO.setEmail(user.getEmail());
-            userDTO.setMobileNo(user.getMobileNo());
-            userDTO.setPickupLocation(user.getPickupLocation());
-            userDTO.setDropLocation(user.getDropLocation());
-            userDTO.setShiftTime(user.getShiftTime());
-            userDTO.setStatus(user.getStatus());
-            schedulingBookingDTO.setUser(userDTO);
+        try {
+            String userServiceUrl = "http://localhost:8080/auth/getCarRentalUserById/" + userId;
+            CarRentalUser user = restTemplate.getForObject(userServiceUrl, CarRentalUser.class);
+            if (user != null) {
+                UserDTO userDTO = new UserDTO();
+                userDTO.setId(user.getId());
+                userDTO.setUserName(user.getUserName());
+                userDTO.setLastName(user.getLastName());
+                userDTO.setEmail(user.getEmail());
+                userDTO.setGender(user.getGender());
+                userDTO.setPhone(user.getPhone());
+                schedulingBookingDTO.setUser(userDTO);
+            }
+        } catch (Exception e) {
+            System.out.println("User not found for ID: " + userId);
+            schedulingBookingDTO.setUser(null);
         }
 
         List<ScheduleDateBookingDTO> scheduledDateDTOs = schedulingBooking.getScheduledDates().stream().map(sd -> {
@@ -448,19 +453,22 @@ public List<SchedulingBookingDTO> getBookingByVendorDriverId(int vendorDriverId)
             schedulingBookingDTO.setVendorDriver(null); 
         }
 
-        User user = this.userRepository.findById(vendorDriverId).orElse(null);
-        if (user != null) {
-            UserDTO userDTO = new UserDTO();
-            userDTO.setId(user.getId());
-            userDTO.setFirstName(user.getFirstName());
-            userDTO.setLastName(user.getLastName());
-            userDTO.setEmail(user.getEmail());
-            userDTO.setMobileNo(user.getMobileNo());
-            userDTO.setPickupLocation(user.getPickupLocation());
-            userDTO.setDropLocation(user.getDropLocation());
-            userDTO.setShiftTime(user.getShiftTime());
-            userDTO.setStatus(user.getStatus());
-            schedulingBookingDTO.setUser(userDTO);
+        try {
+            String userServiceUrl = "http://localhost:8080/auth/getCarRentalUserById/" + schedulingBooking.getUser().getId();
+            CarRentalUser user = restTemplate.getForObject(userServiceUrl, CarRentalUser.class);
+            if (user != null) {
+                UserDTO userDTO = new UserDTO();
+                userDTO.setId(user.getId());
+                userDTO.setUserName(user.getUserName());
+                userDTO.setLastName(user.getLastName());
+                userDTO.setEmail(user.getEmail());
+                userDTO.setGender(user.getGender());
+                userDTO.setPhone(user.getPhone());
+                schedulingBookingDTO.setUser(userDTO);
+            }
+        } catch (Exception e) {
+            System.out.println("User not found for ID: " + schedulingBooking.getUser().getId());
+            schedulingBookingDTO.setUser(null);
         }
 
         List<ScheduleDateBookingDTO> scheduledDateDTOs = schedulingBooking.getScheduledDates().stream().map(sd -> {
@@ -486,7 +494,7 @@ public ScheduledDate updateStatusByUserIdAndDate(int userId, LocalDate backendDa
         return null;
     }
 
-    List<SchedulingBooking> bookings = scheduleBookingRepository.findByUserId(userId);
+    List<SchedulingBooking> bookings = scheduleBookingRepository.findByCarRentalUserId(userId);
 
     for (SchedulingBooking booking : bookings) {
         for (ScheduledDate schedulingDate : booking.getScheduledDates()) {
