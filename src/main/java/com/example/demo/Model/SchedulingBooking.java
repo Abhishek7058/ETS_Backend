@@ -320,6 +320,21 @@ public class SchedulingBooking {
         this.carRentalUserId = carRentalUserId;
     }
 
+    @Override
+    public String toString() {
+        return "SchedulingBooking [id=" + id + ", pickUpLocation=" + pickUpLocation + ", bookId=" + bookId
+                + ", dropLocation=" + dropLocation + ", time=" + time + ", returnTime=" + returnTime + ", cabType="
+                + cabType + ", vendorId=" + vendorId + ", vendorDriverId=" + vendorDriverId + ", vendor=" + vendor
+                + ", baseAmount=" + baseAmount + ", finalAmount=" + finalAmount + ", serviceCharge=" + serviceCharge
+                + ", gst=" + gst + ", distance=" + distance + ", sittingExcepatation=" + sittingExcepatation
+                + ", vendorDriver=" + vendorDriver + ", partnerSharing=" + partnerSharing + ", shiftTime=" + shiftTime
+                + ", dateOfList=" + dateOfList + ", bookingType=" + bookingType + ", status=" + status
+                + ", carRentaluser=" + carRentaluser + ", carRentalUserId=" + carRentalUserId + ", scheduledDates="
+                + scheduledDates + "]";
+    }
+
+
+    
     
 
 

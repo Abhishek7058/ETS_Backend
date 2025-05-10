@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
@@ -46,6 +48,9 @@ public class ScheduleBookingService {
     @Autowired
     private RestTemplate restTemplate;
 
+        private static final Logger logger = LoggerFactory.getLogger(ScheduleBookingService.class);
+
+
     private final String apiKey = "AIzaSyCelDo4I5cPQ72TfCTQW-arhPZ7ALNcp8w"; // Replace with your Google API key
 
 
@@ -85,9 +90,6 @@ public class ScheduleBookingService {
         return scheduleBookingRepository.save(booking);
     }
 
-
-     
-
     public SchedulingBooking assignVendorToBooking(int bookingId, Long vendorId) {
         SchedulingBooking booking = scheduleBookingRepository.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found with ID: " + bookingId));
@@ -103,37 +105,142 @@ public class ScheduleBookingService {
         return scheduleBookingRepository.save(booking);
     }
 
+
+    // ------------------------------------------------------------------- sahil
+
+  
+    
+    
+    public boolean canBook(int bookingId, int vendorDriverId) {
+        SchedulingBooking newBooking = scheduleBookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found with ID: " + bookingId));
+    
+        List<SchedulingBooking> existingBookings = scheduleBookingRepository.findByVendorDriverId(vendorDriverId);
+    
+        logger.debug("Checking booking possibility for bookingId: {}, vendorDriverId: {}", bookingId, vendorDriverId);
+        logger.debug("Found {} existing bookings for driver", existingBookings.size());
+        logger.debug("New booking details - cabType: {}, partnerSharing: {}, sittingExcepatation: {}", 
+                     newBooking.getCabType(), newBooking.getPartnerSharing(), newBooking.getSittingExcepatation());
+    
+        if (newBooking.getCabType() == null) {
+            logger.error("Booking has null cabType");
+            return false;
+        }
+    
+        if (!existingBookings.isEmpty()) {
+            String existingCabType = existingBookings.get(0).getCabType();
+            String requestingCabType = newBooking.getCabType();
+    
+            if (existingCabType == null || requestingCabType == null) {
+                logger.error("Null cabType found during comparison");
+                return false;
+            }
+    
+            if (!existingCabType.equalsIgnoreCase(requestingCabType)) {
+                logger.debug("Cab type mismatch - returning false");
+                return false;
+            }
+        }
+    
+        int usableCapacity = getSeatingCapacityByCabType(newBooking.getCabType());
+        logger.debug("Usable capacity for {} is {}", newBooking.getCabType(), usableCapacity);
+    
+        if (usableCapacity == -1) {
+            logger.error("Unknown cab type: {}", newBooking.getCabType());
+            throw new RuntimeException("Unknown cab type: " + newBooking.getCabType());
+        }
+    
+        int effectiveSharing = newBooking.getPartnerSharing() == 0 ? usableCapacity : newBooking.getPartnerSharing();
+        logger.debug("Effective partnerSharing used: {}", effectiveSharing);
+    
+        if (!existingBookings.isEmpty()) {
+            int existingSharing = existingBookings.get(0).getPartnerSharing() == 0 ? 
+                                  usableCapacity : 
+                                  existingBookings.get(0).getPartnerSharing();
+            logger.debug("Existing partnerSharing used: {}", existingSharing);
+    
+            if (effectiveSharing != existingSharing) {
+                logger.debug("Partner sharing mismatch - returning false");
+                return false;
+            }
+        }
+    
+        int usedSeats = 0;
+        for (SchedulingBooking booking : existingBookings) {
+            int seats = booking.getSittingExcepatation() <= 0 ? 1 : booking.getSittingExcepatation();
+            usedSeats += seats;
+        }
+    
+        int requestedSeats = newBooking.getSittingExcepatation() <= 0 ? 1 : newBooking.getSittingExcepatation();
+        int remainingSeats = usableCapacity - usedSeats;
+    
+        logger.debug("Used seats: {}, Remaining seats: {}, Requested seats: {}, Allowed sharing: {}", 
+                   usedSeats, remainingSeats, requestedSeats, effectiveSharing);
+    
+        return requestedSeats <= remainingSeats && (usedSeats + requestedSeats) <= effectiveSharing;
+    }
+
+    private int getSeatingCapacityByCabType(String cabType) {
+        if (cabType == null) return -1;
+    
+        switch (cabType.toLowerCase()) {
+            case "suv":
+                return 5;
+            case "sedan":
+            case "sedan premium":
+            case "hatchback":
+                return 3;
+            default:
+                return -1;
+        }
+    }
+    
     public SchedulingBooking assignDriverBooking(int bookingId, int vendorDriverId) {
         SchedulingBooking newBooking = scheduleBookingRepository.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found with ID: " + bookingId));
-
-        // Verify driver exists
+    
+        logger.info("Assigning driver {} to booking {}", vendorDriverId, bookingId);
+    
+        if (newBooking.getCabType() == null) {
+            throw new RuntimeException("CabType is required for booking assignment.");
+        }
+        
+    
+        // DO NOT SET partnerSharing or sittingExcepatation if 0 — just use defaults for logic
+    
+        boolean isBookable = canBook(bookingId, vendorDriverId);
+        logger.info("Result of canBook for booking {} and driver {}: {}", bookingId, vendorDriverId, isBookable);
+    
+        if (!isBookable) {
+            throw new RuntimeException("Driver cannot be assigned to this booking due to scheduling conflict.");
+        }
+    
+        // Check if vendorDriver exists
         String driverUrl = "http://localhost:8080/vendorDriver/" + vendorDriverId;
         try {
             restTemplate.getForObject(driverUrl, Vendor.class);
         } catch (HttpClientErrorException.NotFound e) {
             throw new RuntimeException("Vendor not found with ID: " + vendorDriverId);
         }
-
-        // Get all existing bookings for this driver
+    
+        // Optional: check for overlapping routes
         List<SchedulingBooking> existingBookings = scheduleBookingRepository.findByVendorDriverId(vendorDriverId);
-
-        // Check for route overlap with existing bookings
         for (SchedulingBooking existingBooking : existingBookings) {
             if (isRouteOverlapping(
-                existingBooking.getPickUpLocation(),
-                existingBooking.getDropLocation(),
-                newBooking.getPickUpLocation(),
-                newBooking.getDropLocation()
-            )) {
+                    existingBooking.getPickUpLocation(),
+                    existingBooking.getDropLocation(),
+                    newBooking.getPickUpLocation(),
+                    newBooking.getDropLocation())) {
                 throw new RuntimeException("Cannot assign driver - route overlaps with existing booking ID: " + existingBooking.getId());
             }
         }
-        
-
+    
         newBooking.setVendorDriverId(vendorDriverId);
         return scheduleBookingRepository.save(newBooking);
     }
+    
+
+
 
     private boolean isRouteOverlapping(String existingPickup, String existingDrop, String newPickup, String newDrop) {
         try {
