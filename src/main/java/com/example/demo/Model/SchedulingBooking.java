@@ -72,6 +72,8 @@ public class SchedulingBooking {
 
     private String status;
 
+    private String slotId;
+
    
 
     @Transient
@@ -87,7 +89,7 @@ public class SchedulingBooking {
     public SchedulingBooking(int id, String pickUpLocation, String dropLocation, String time, String returnTime,
             Long vendorId, int vendorDriverId, Vendor vendor, String baseAmount, String finalAmount,
             String serviceCharge, String gst, VendorDriver vendorDriver, String shiftTime, List<LocalDate> dateOfList,
-            String bookingType, CarRentalUser carRentaluser, List<ScheduledDate> scheduledDates, String cabType, String distance, int sittingExcepatation, String bookId, int partnerSharing, String status, int carRentalUserId ) {
+            String bookingType, CarRentalUser carRentaluser, List<ScheduledDate> scheduledDates, String cabType, String distance, int sittingExcepatation, String bookId, int partnerSharing, String status, int carRentalUserId, String slotId ) {
         this.id = id;
         this.pickUpLocation = pickUpLocation;
         this.dropLocation = dropLocation;
@@ -112,6 +114,7 @@ public class SchedulingBooking {
         this.sittingExcepatation=sittingExcepatation;
         this.bookId=bookId;
         this.partnerSharing=partnerSharing;
+        this.slotId=slotId;
     }
 
     public SchedulingBooking(){
@@ -318,6 +321,24 @@ public class SchedulingBooking {
 
     public void setCarRentalUserId(int carRentalUserId) {
         this.carRentalUserId = carRentalUserId;
+    }
+
+    
+
+    public String getSlotId() {
+        return slotId;
+    }
+
+    public void setSlotId(String slotId) {
+        this.slotId = slotId;
+    }
+
+    public CarRentalUser getCarRentaluser() {
+        return carRentaluser;
+    }
+
+    public void setCarRentaluser(CarRentalUser carRentaluser) {
+        this.carRentaluser = carRentaluser;
     }
 
     @Override

@@ -204,26 +204,13 @@ public class ScheduleBookingService {
         if (newBooking.getCabType() == null) {
             throw new RuntimeException("CabType is required for booking assignment.");
         }
-        
-    
-        // DO NOT SET partnerSharing or sittingExcepatation if 0 — just use defaults for logic
-    
-        boolean isBookable = canBook(bookingId, vendorDriverId);
-        logger.info("Result of canBook for booking {} and driver {}: {}", bookingId, vendorDriverId, isBookable);
-    
-        if (!isBookable) {
-            throw new RuntimeException("Driver cannot be assigned to this booking due to scheduling conflict.");
-        }
-    
-        // Check if vendorDriver exists
-        String driverUrl = "http://localhost:8080/vendorDriver/" + vendorDriverId;
+                String driverUrl = "http://localhost:8080/vendorDriver/" + vendorDriverId;
         try {
             restTemplate.getForObject(driverUrl, Vendor.class);
         } catch (HttpClientErrorException.NotFound e) {
             throw new RuntimeException("Vendor not found with ID: " + vendorDriverId);
         }
     
-        // Optional: check for overlapping routes
         List<SchedulingBooking> existingBookings = scheduleBookingRepository.findByVendorDriverId(vendorDriverId);
         for (SchedulingBooking existingBooking : existingBookings) {
             if (isRouteOverlapping(
@@ -244,7 +231,6 @@ public class ScheduleBookingService {
 
     private boolean isRouteOverlapping(String existingPickup, String existingDrop, String newPickup, String newDrop) {
         try {
-            // Build URL for Google Maps Directions API
             String url = UriComponentsBuilder.fromHttpUrl("https://maps.googleapis.com/maps/api/directions/json")
                 .queryParam("origin", UriUtils.encode(existingPickup, "UTF-8"))
                 .queryParam("destination", UriUtils.encode(existingDrop, "UTF-8"))
@@ -253,24 +239,20 @@ public class ScheduleBookingService {
                 .build()
                 .toString();
 
-            // Make API call
             Map<String, Object> response = restTemplate.getForObject(url, Map.class);
             
-            // Check if the route is valid and doesn't have too much deviation
             if (response != null && "OK".equals(response.get("status"))) {
                 List<Map<String, Object>> routes = (List<Map<String, Object>>) response.get("routes");
                 if (routes != null && !routes.isEmpty()) {
                     Map<String, Object> route = routes.get(0);
                     List<Map<String, Object>> legs = (List<Map<String, Object>>) route.get("legs");
                     
-                    // If the route exists and is reasonable, consider it overlapping
                     return true;
                 }
             }
             
             return false;
         } catch (Exception e) {
-            // Log the error and return false to be safe
             System.err.println("Error checking route overlap: " + e.getMessage());
             return false;
         }
@@ -415,13 +397,7 @@ List<ScheduleDateBookingDTO> scheduledDateDTOs = schedulingBooking.getScheduledD
 dtoS.setScheduledDates(scheduledDateDTOs);
 
 // dtoList.add(dtoS);
-
-
-
-
-   
-
-   return dtoS;
+return dtoS;
 
 
 
