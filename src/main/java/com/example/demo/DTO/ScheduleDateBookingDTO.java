@@ -21,6 +21,13 @@ public class ScheduleDateBookingDTO {
         this.date = date;
         this.status = status;
     }
+    
+    // Additional constructor for Integer id
+    public ScheduleDateBookingDTO(Integer id, LocalDate date, String status) {
+        this.id = id != null ? id.longValue() : null;
+        this.date = date;
+        this.status = status;
+    }
 
     public Long getId() {
         return id;
@@ -28,6 +35,11 @@ public class ScheduleDateBookingDTO {
 
     public void setId(Long id) {
         this.id = id;
+    }
+    
+    // Additional setter for Integer id
+    public void setId(Integer id) {
+        this.id = id != null ? id.longValue() : null;
     }
 
     public LocalDate getDate() {

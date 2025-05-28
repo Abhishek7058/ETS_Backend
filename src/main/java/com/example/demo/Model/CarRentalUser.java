@@ -1,108 +1,135 @@
 package com.example.demo.Model;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import jakarta.annotation.Generated;
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
 
-
+@Entity
+@Table(name = "car_rental_users")
 public class CarRentalUser {
     
-    private int id;
-
-    private String userName;
-
-    private String lastName;
-
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+    
+    private String name;
     private String email;
-
-    private String gender;
-
     private String phone;
-
-
-    public CarRentalUser(){
-        super();
+    private String address;
+    private Boolean active;
+    
+    // Additional fields based on error messages
+    private String lastName;
+    private String gender;
+    
+    // Default constructor
+    public CarRentalUser() {
     }
-
-
-    public int getId() {
+    
+    // Parameterized constructor
+    public CarRentalUser(String name, String email, String phone, String address, Boolean active) {
+        this.name = name;
+        this.email = email;
+        this.phone = phone;
+        this.address = address;
+        this.active = active;
+    }
+    
+    // Extended parameterized constructor
+    public CarRentalUser(String name, String lastName, String email, String phone, 
+                        String address, String gender, Boolean active) {
+        this.name = name;
+        this.lastName = lastName;
+        this.email = email;
+        this.phone = phone;
+        this.address = address;
+        this.gender = gender;
+        this.active = active;
+    }
+    
+    // Getters and Setters
+    public Integer getId() {
         return id;
     }
-
-
-    public void setId(int id) {
+    
+    public void setId(Integer id) {
         this.id = id;
     }
-
-
-    public String getUserName() {
-        return userName;
+    
+    public String getName() {
+        return name;
     }
-
-
-    public void setUserName(String userName) {
-        this.userName = userName;
+    
+    public void setName(String name) {
+        this.name = name;
     }
-
-
-    public String getLastName() {
-        return lastName;
-    }
-
-
-    public void setLastName(String lastName) {
-        this.lastName = lastName;
-    }
-
-
+    
     public String getEmail() {
         return email;
     }
-
-
+    
     public void setEmail(String email) {
         this.email = email;
     }
-
-
-    public String getGender() {
-        return gender;
-    }
-
-
-    public void setGender(String gender) {
-        this.gender = gender;
-    }
-
-
+    
     public String getPhone() {
         return phone;
     }
-
-
+    
     public void setPhone(String phone) {
         this.phone = phone;
     }
-
-
-    public CarRentalUser(int id, String userName, String lastName, String email, String gender, String phone) {
-        this.id = id;
-        this.userName = userName;
-        this.lastName = lastName;
-        this.email = email;
-        this.gender = gender;
-        this.phone = phone;
+    
+    public String getAddress() {
+        return address;
     }
-
     
-
+    public void setAddress(String address) {
+        this.address = address;
+    }
     
-
+    public Boolean getActive() {
+        return active;
+    }
+    
+    public void setActive(Boolean active) {
+        this.active = active;
+    }
+    
+    public String getLastName() {
+        return lastName;
+    }
+    
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+    
+    public String getGender() {
+        return gender;
+    }
+    
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+    
+    // Alias methods for compatibility
+    public String getUserName() {
+        return name;
+    }
+    
+    @Override
+    public String toString() {
+        return "CarRentalUser{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", lastName='" + lastName + '\'' +
+                ", email='" + email + '\'' +
+                ", phone='" + phone + '\'' +
+                ", address='" + address + '\'' +
+                ", gender='" + gender + '\'' +
+                ", active=" + active +
+                '}';
+    }
 }
