@@ -1,9 +1,13 @@
 package com.example.demo.Service;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,11 +23,9 @@ import com.example.demo.DTO.SchedulingBookingDTO;
 import com.example.demo.DTO.UserDTO;
 import com.example.demo.DTO.VendorDTO;
 import com.example.demo.DTO.VendorDriverDTO;
-import com.example.demo.Model.Booking;
 import com.example.demo.Model.CarRentalUser;
 import com.example.demo.Model.ScheduledDate;
 import com.example.demo.Model.SchedulingBooking;
-import com.example.demo.Model.CarRentalUser;
 import com.example.demo.Model.Vendor;
 import com.example.demo.Model.VendorDriver;
 import com.example.demo.Repository.ScheduleBookingRepository;
@@ -204,14 +206,29 @@ public class ScheduleBookingService {
         if (newBooking.getCabType() == null) {
             throw new RuntimeException("CabType is required for booking assignment.");
         }
-                String driverUrl = "http://localhost:8080/vendorDriver/" + vendorDriverId;
+                
+        // Get driver details
+        String driverUrl = "http://localhost:8080/vendorDriver/" + vendorDriverId;
+        VendorDriver driver;
         try {
-            restTemplate.getForObject(driverUrl, Vendor.class);
+            driver = restTemplate.getForObject(driverUrl, VendorDriver.class);
+            if (driver == null) {
+                throw new RuntimeException("Driver not found with ID: " + vendorDriverId);
+            }
         } catch (HttpClientErrorException.NotFound e) {
-            throw new RuntimeException("Vendor not found with ID: " + vendorDriverId);
+            throw new RuntimeException("Driver not found with ID: " + vendorDriverId);
         }
-    
+        
+        // 1. Cab Type Match: Check if the cab type of the booking matches the cab type of the driver's vehicle
+        if (driver.getCabType() != null && !driver.getCabType().equalsIgnoreCase(newBooking.getCabType())) {
+            throw new RuntimeException("Cab type mismatch. Booking requires " + newBooking.getCabType() + 
+                    " but driver has " + driver.getCabType());
+        }
+        
+        // Get all existing bookings for this driver
         List<SchedulingBooking> existingBookings = scheduleBookingRepository.findByVendorDriverId(vendorDriverId);
+        
+        // Check for route overlaps
         for (SchedulingBooking existingBooking : existingBookings) {
             if (isRouteOverlapping(
                     existingBooking.getPickUpLocation(),
@@ -221,7 +238,89 @@ public class ScheduleBookingService {
                 throw new RuntimeException("Cannot assign driver - route overlaps with existing booking ID: " + existingBooking.getId());
             }
         }
-    
+        
+        // Get the cab capacity based on cab type
+        int cabCapacity = getSeatingCapacityByCabType(newBooking.getCabType());
+        if (cabCapacity == -1) {
+            throw new RuntimeException("Unknown cab type: " + newBooking.getCabType());
+        }
+        
+        // Create a map to track bookings by date and time slot
+        Map<LocalDate, Map<String, List<SchedulingBooking>>> bookingsByDateAndSlot = new HashMap<>();
+        Map<String, Integer> slotIdCounter = new HashMap<>(); // To generate unique slot IDs
+        
+        // Process each existing booking and organize by date and time slot
+        for (SchedulingBooking booking : existingBookings) {
+            // Skip if the booking doesn't have scheduled dates
+            if (booking.getScheduledDates() == null || booking.getScheduledDates().isEmpty()) {
+                continue;
+            }
+            
+            // For each scheduled date in the booking
+            for (ScheduledDate scheduledDate : booking.getScheduledDates()) {
+                LocalDate bookingDate = scheduledDate.getDate();
+                String timeSlot = getTimeSlot(booking.getTime());
+                
+                // Initialize the date map if it doesn't exist
+                bookingsByDateAndSlot.putIfAbsent(bookingDate, new HashMap<>());
+                
+                // Initialize the time slot list if it doesn't exist
+                Map<String, List<SchedulingBooking>> timeSlots = bookingsByDateAndSlot.get(bookingDate);
+                timeSlots.putIfAbsent(timeSlot, new ArrayList<>());
+                
+                // Add the booking to the appropriate slot
+                timeSlots.get(timeSlot).add(booking);
+            }
+        }
+        
+        // Check each date in the new booking
+        if (newBooking.getScheduledDates() != null) {
+            for (ScheduledDate scheduledDate : newBooking.getScheduledDates()) {
+                LocalDate bookingDate = scheduledDate.getDate();
+                String timeSlot = getTimeSlot(newBooking.getTime());
+                
+                // 2. Date Match: Check if the driver has bookings for this date
+                if (bookingsByDateAndSlot.containsKey(bookingDate)) {
+                    Map<String, List<SchedulingBooking>> timeSlots = bookingsByDateAndSlot.get(bookingDate);
+                    
+                    // 3. Time Slot Grouping: Check the specific time slot
+                    if (timeSlots.containsKey(timeSlot)) {
+                        List<SchedulingBooking> bookingsInSlot = timeSlots.get(timeSlot);
+                        
+                        // 4. Cab Capacity Limit: Check if adding this booking would exceed capacity
+                        int currentBookingsCount = bookingsInSlot.size();
+                        int requestedSeats = newBooking.getSittingExcepatation() <= 0 ? 1 : newBooking.getSittingExcepatation();
+                        
+                        if (currentBookingsCount + 1 > cabCapacity || currentBookingsCount + requestedSeats > cabCapacity) {
+                            throw new RuntimeException("Cannot assign driver - cab capacity exceeded for date " + 
+                                    bookingDate + " and time slot " + timeSlot);
+                        }
+                        
+                        // 5. Slot ID Assignment: Get or create a slot ID for this time window
+                        String slotKey = bookingDate + "-" + timeSlot;
+                        if (!slotIdCounter.containsKey(slotKey)) {
+                            slotIdCounter.put(slotKey, generateSlotId());
+                        }
+                        int slotId = slotIdCounter.get(slotKey);
+                        
+                        // Set the slot ID for the new booking
+                        newBooking.setSlotId(slotId);
+                    } else {
+                        // New time slot for this date, create a new slot ID
+                        String slotKey = bookingDate + "-" + timeSlot;
+                        slotIdCounter.put(slotKey, generateSlotId());
+                        newBooking.setSlotId(slotIdCounter.get(slotKey));
+                    }
+                } else {
+                    // New date, create a new slot ID
+                    String slotKey = bookingDate + "-" + timeSlot;
+                    slotIdCounter.put(slotKey, generateSlotId());
+                    newBooking.setSlotId(slotIdCounter.get(slotKey));
+                }
+            }
+        }
+        
+        // Assign the driver and save the booking
         newBooking.setVendorDriverId(vendorDriverId);
         return scheduleBookingRepository.save(newBooking);
     }
@@ -231,31 +330,80 @@ public class ScheduleBookingService {
 
     private boolean isRouteOverlapping(String existingPickup, String existingDrop, String newPickup, String newDrop) {
         try {
-            String url = UriComponentsBuilder.fromHttpUrl("https://maps.googleapis.com/maps/api/directions/json")
+            // Using URI.create instead of deprecated fromHttpUrl
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString("https://maps.googleapis.com/maps/api/directions/json")
                 .queryParam("origin", UriUtils.encode(existingPickup, "UTF-8"))
                 .queryParam("destination", UriUtils.encode(existingDrop, "UTF-8"))
                 .queryParam("waypoints", "via:" + UriUtils.encode(newPickup, "UTF-8") + "|via:" + UriUtils.encode(newDrop, "UTF-8"))
-                .queryParam("key", apiKey)
-                .build()
-                .toString();
+                .queryParam("key", apiKey);
+            
+            String url = builder.build().toString();
 
+            // Use proper generic type for the response
+            @SuppressWarnings("unchecked")
             Map<String, Object> response = restTemplate.getForObject(url, Map.class);
             
             if (response != null && "OK".equals(response.get("status"))) {
+                @SuppressWarnings("unchecked")
                 List<Map<String, Object>> routes = (List<Map<String, Object>>) response.get("routes");
+                
                 if (routes != null && !routes.isEmpty()) {
                     Map<String, Object> route = routes.get(0);
-                    List<Map<String, Object>> legs = (List<Map<String, Object>>) route.get("legs");
-                    
-                    return true;
+                    // We're not using the legs variable, so no need to cast it
+                    // Just check if the legs exist to confirm routing
+                    if (route.containsKey("legs")) {
+                        return true;
+                    }
                 }
             }
             
             return false;
         } catch (Exception e) {
-            System.err.println("Error checking route overlap: " + e.getMessage());
+            logger.error("Error checking route overlap: {}", e.getMessage());
             return false;
         }
+    }
+    
+    // Helper method to determine the time slot for a given time string
+    private String getTimeSlot(String timeString) {
+        if (timeString == null || timeString.isEmpty()) {
+            return "UNKNOWN";
+        }
+        
+        try {
+            // Parse the time string to a LocalTime object
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+            LocalTime time = LocalTime.parse(timeString, formatter);
+            
+            // Define time slots - each slot is a 3-hour window
+            if (time.isAfter(LocalTime.of(0, 0)) && time.isBefore(LocalTime.of(3, 0))) {
+                return "00:00-03:00";
+            } else if (time.isAfter(LocalTime.of(3, 0)) && time.isBefore(LocalTime.of(6, 0))) {
+                return "03:00-06:00";
+            } else if (time.isAfter(LocalTime.of(6, 0)) && time.isBefore(LocalTime.of(9, 0))) {
+                return "06:00-09:00";
+            } else if (time.isAfter(LocalTime.of(9, 0)) && time.isBefore(LocalTime.of(12, 0))) {
+                return "09:00-12:00";
+            } else if (time.isAfter(LocalTime.of(12, 0)) && time.isBefore(LocalTime.of(15, 0))) {
+                return "12:00-15:00";
+            } else if (time.isAfter(LocalTime.of(15, 0)) && time.isBefore(LocalTime.of(18, 0))) {
+                return "15:00-18:00";
+            } else if (time.isAfter(LocalTime.of(18, 0)) && time.isBefore(LocalTime.of(21, 0))) {
+                return "18:00-21:00";
+            } else {
+                return "21:00-00:00";
+            }
+        } catch (Exception e) {
+            logger.error("Error parsing time: {}", e.getMessage());
+            return "UNKNOWN";
+        }
+    }
+    
+    // Helper method to generate a unique slot ID
+    private static final AtomicInteger slotCounter = new AtomicInteger(1000);
+    
+    private int generateSlotId() {
+        return slotCounter.incrementAndGet();
     }
 
     public SchedulingBookingDTO getBookingWithVendorDTO(int bookingId) {

@@ -22,6 +22,7 @@ public class VendorDriver {
     private String status; // Available, Busy, Offline
     private String documentUrl; // URL to the driver's documents (license, etc.)
     private Boolean active;
+    private String cabType; // Type of cab the driver operates (SUV, Sedan, Hatchback)
     
     // Additional fields based on error messages
     private String altContactNo;
@@ -124,6 +125,14 @@ public class VendorDriver {
         this.altContactNo = altContactNo;
     }
     
+    public String getCabType() {
+        return cabType;
+    }
+    
+    public void setCabType(String cabType) {
+        this.cabType = cabType;
+    }
+    
     // Additional methods required based on error messages
     public Integer getVendorDriverId() {
         return id;
@@ -149,6 +158,7 @@ public class VendorDriver {
                 ", status='" + status + '\'' +
                 ", documentUrl='" + documentUrl + '\'' +
                 ", active=" + active +
+                ", cabType='" + cabType + '\'' +
                 ", altContactNo='" + altContactNo + '\'' +
                 '}';
     }

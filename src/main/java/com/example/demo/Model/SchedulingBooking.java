@@ -47,6 +47,7 @@ public class SchedulingBooking {
     private String gst;
     private Integer sittingExcepatation;
     private Integer partnerSharing;
+    private Integer slotId; // Added for time slot grouping
     
     @Transient
     private List<LocalDate> dateOfList;
@@ -298,6 +299,14 @@ public class SchedulingBooking {
         this.partnerSharing = partnerSharing;
     }
     
+    public Integer getSlotId() {
+        return slotId;
+    }
+    
+    public void setSlotId(Integer slotId) {
+        this.slotId = slotId;
+    }
+    
     public List<LocalDate> getDateOfList() {
         return dateOfList;
     }
@@ -364,6 +373,7 @@ public class SchedulingBooking {
                 ", status='" + status + '\'' +
                 ", sittingExcepatation=" + sittingExcepatation +
                 ", partnerSharing=" + partnerSharing +
+                ", slotId=" + slotId +
                 ", vendorId=" + vendorId +
                 ", vendorDriverId=" + vendorDriverId +
                 '}';
