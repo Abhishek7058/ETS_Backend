@@ -112,41 +112,64 @@ public class LocationRESTController {
         String slotId = locationMessage.getSlotId();
         double driverLat = locationMessage.getLatitude();
         double driverLng = locationMessage.getLongitude();
-        
+        String currentRideStatus = locationMessage.getRideStatus(); // Get current ride status from driver
+
         // Store driver location
+        locationMessage.setLastUpdated(LocalDateTime.now());
         driverLocationsBySlot.put(slotId, locationMessage);
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("status", "success");
-        
-        // Process each user in this slot to update distances
+
+        // Process each user in this slot to update distances and potentially add to response
         if (userLocationsBySlot.containsKey(slotId)) {
             ConcurrentHashMap<String, LocationMessage> users = userLocationsBySlot.get(slotId);
-            
-            // Process each user to update distance and ETA
+            boolean firstUserProcessed = false;
+
             for (String userId : users.keySet()) {
                 LocationMessage userLocation = users.get(userId);
-                
-                // Calculate distance from driver to pickup location
+
+                // Calculate distance from driver to user's pickup location
                 double distanceToPickup = LocationUtils.calculateDistance(
-                    driverLat, driverLng, 
+                    driverLat, driverLng,
                     userLocation.getPickupLatitude(), userLocation.getPickupLongitude()
                 );
-                
-                // Calculate ETA
+
+                // Calculate ETA to pickup
                 int estimatedTimeToPickup = LocationUtils.estimateTravelTime(distanceToPickup);
-                
-                // Update the location message
+
+                // Calculate total ride distance (pickup to drop for this user)
+                double totalRideDistance = LocationUtils.calculateDistance(
+                    userLocation.getPickupLatitude(), userLocation.getPickupLongitude(),
+                    userLocation.getDropLatitude(), userLocation.getDropLongitude()
+                );
+                int estimatedRideTime = LocationUtils.estimateTravelTime(totalRideDistance);
+
+                // Update the user's location message with these details
                 userLocation.setDistanceToPickup(distanceToPickup);
                 userLocation.setEstimatedTimeToPickup(estimatedTimeToPickup);
+                userLocation.setTotalRideDistance(totalRideDistance);
+                userLocation.setEstimatedRideTime(estimatedRideTime);
+                // userLocation.setRideStatus(currentRideStatus); // User's ride status is updated via /updateStatus
                 userLocation.setLastUpdated(LocalDateTime.now());
-                
+
                 users.put(userId, userLocation);
+
+                // For the main response, send back details for the first user found (or selected user if implemented)
+                // This is a simplification; ideally, the frontend would specify which user's details it needs.
+                if (!firstUserProcessed) {
+                    response.put("distanceToPickup", distanceToPickup);
+                    response.put("estimatedTimeToPickup", estimatedTimeToPickup);
+                    response.put("totalRideDistance", totalRideDistance);
+                    response.put("estimatedRideTime", estimatedRideTime);
+                    // Also send back the overall ride status as perceived by the driver
+                    response.put("rideStatus", currentRideStatus);
+                    firstUserProcessed = true;
+                }
             }
-            
-            response.put("userLocations", new ArrayList<>(users.values()));
+            // response.put("userLocations", new ArrayList<>(users.values())); // Optionally send all user details
         }
-        
+
         return ResponseEntity.ok(response);
     }
     

@@ -8,6 +8,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCelDo4I5cPQ72TfCTQW-arhPZ7ALNcp8w&libraries=places"></script>
+    <script src="https://unpkg.com/polyline-encoded"></script>
     
     <style>
         body {
@@ -344,6 +345,9 @@
         let map;
         let driverMarker;
         let userMarkers = {}; // Object to store user markers by userId
+        let pickupMarkers = {}; // Object to store pickup markers by userId
+        let dropMarkers = {}; // Object to store drop markers by userId
+        let routeLines = {}; // Object to store route polylines by userId
         let locationUpdateInterval;
         let userCheckInterval;
         let driverId, slotId;
@@ -374,6 +378,22 @@
                 iconSize: [30, 30],
                 iconAnchor: [15, 15],
                 popupAnchor: [0, -15]
+            });
+            
+            // Custom pickup marker icon
+            const pickupIcon = L.icon({
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/484/484167.png',
+                iconSize: [30, 30],
+                iconAnchor: [15, 30],
+                popupAnchor: [0, -30]
+            });
+            
+            // Custom drop marker icon
+            const dropIcon = L.icon({
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/1076/1076337.png',
+                iconSize: [30, 30],
+                iconAnchor: [15, 30],
+                popupAnchor: [0, -30]
             });
             
             // Create marker for driver
@@ -621,9 +641,29 @@
                 popupAnchor: [0, -15]
             });
             
+            // Custom pickup marker icon
+            const pickupIcon = L.icon({
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/484/484167.png',
+                iconSize: [30, 30],
+                iconAnchor: [15, 30],
+                popupAnchor: [0, -30]
+            });
+            
+            // Custom drop marker icon
+            const dropIcon = L.icon({
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/1076/1076337.png',
+                iconSize: [30, 30],
+                iconAnchor: [15, 30],
+                popupAnchor: [0, -30]
+            });
+            
             userLocations.forEach(function(user) {
                 const lat = user.latitude;
                 const lng = user.longitude;
+                const pickupLat = user.pickupLatitude;
+                const pickupLng = user.pickupLongitude;
+                const dropLat = user.dropLatitude;
+                const dropLng = user.dropLongitude;
                 
                 // If user marker doesn't exist, create it
                 if (!userMarkers[user.userId]) {
@@ -634,6 +674,97 @@
                 userMarkers[user.userId].setLatLng([lat, lng]);
                 userMarkers[user.userId].setOpacity(1);
                 userMarkers[user.userId].bindPopup("User ID: " + user.userId);
+                
+                // Add or update pickup location marker
+                if (pickupLat && pickupLng) {
+                    if (!pickupMarkers[user.userId]) {
+                        pickupMarkers[user.userId] = L.marker([pickupLat, pickupLng], {icon: pickupIcon}).addTo(map);
+                    }
+                    pickupMarkers[user.userId].setLatLng([pickupLat, pickupLng]);
+                    pickupMarkers[user.userId].setOpacity(1);
+                    pickupMarkers[user.userId].bindPopup("Pickup: " + user.pickupLocation);
+                }
+                
+                // Add or update drop location marker
+                if (dropLat && dropLng) {
+                    if (!dropMarkers[user.userId]) {
+                        dropMarkers[user.userId] = L.marker([dropLat, dropLng], {icon: dropIcon}).addTo(map);
+                    }
+                    dropMarkers[user.userId].setLatLng([dropLat, dropLng]);
+                    dropMarkers[user.userId].setOpacity(1);
+                    dropMarkers[user.userId].bindPopup("Drop: " + user.dropLocation);
+                }
+                
+                // Draw route from pickup to drop if both locations exist
+                if (pickupLat && pickupLng && dropLat && dropLng) {
+                    drawRoute(user.userId, pickupLat, pickupLng, dropLat, dropLng);
+                }
+                
+                // If this is the selected user, adjust map to show all relevant markers
+                if (user.userId === selectedUserId) {
+                    const bounds = L.latLngBounds(
+                        [driverMarker.getLatLng(), 
+                         userMarkers[user.userId].getLatLng()]
+                    );
+                    
+                    if (pickupLat && pickupLng) {
+                        bounds.extend([pickupLat, pickupLng]);
+                    }
+                    
+                    if (dropLat && dropLng) {
+                        bounds.extend([dropLat, dropLng]);
+                    }
+                    
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                }
+            });
+        }
+        
+        // Draw route between two points
+        function drawRoute(userId, startLat, startLng, endLat, endLng) {
+            // Remove existing route line if it exists
+            if (routeLines[userId]) {
+                map.removeLayer(routeLines[userId]);
+            }
+            
+            // Get route using OpenStreetMap Directions API (via OSRM)
+            $.ajax({
+                url: `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=polyline`,
+                type: 'GET',
+                success: function(data) {
+                    if (data.routes && data.routes.length > 0) {
+                        // Decode the polyline
+                        const polyline = L.Polyline.fromEncoded(data.routes[0].geometry);
+                        const coordinates = polyline.getLatLngs();
+                        
+                        // Create a polyline with the coordinates
+                        routeLines[userId] = L.polyline(coordinates, {
+                            color: '#0066CC',
+                            weight: 5,
+                            opacity: 0.7,
+                            lineJoin: 'round'
+                        }).addTo(map);
+                    } else {
+                        // Fallback to straight line if route service fails
+                        routeLines[userId] = L.polyline([[startLat, startLng], [endLat, endLng]], {
+                            color: '#0066CC',
+                            weight: 5,
+                            opacity: 0.7,
+                            dashArray: '10, 10',
+                            lineJoin: 'round'
+                        }).addTo(map);
+                    }
+                },
+                error: function() {
+                    // Fallback to straight line if API call fails
+                    routeLines[userId] = L.polyline([[startLat, startLng], [endLat, endLng]], {
+                        color: '#0066CC',
+                        weight: 5,
+                        opacity: 0.7,
+                        dashArray: '10, 10',
+                        lineJoin: 'round'
+                    }).addTo(map);
+                }
             });
         }
         
@@ -661,6 +792,21 @@
             } else {
                 document.getElementById('otpVerification').style.display = 'none';
             }
+            
+            // Focus map on this user and their locations
+            if (userMarkers[userId]) {
+                const bounds = L.latLngBounds([driverMarker.getLatLng(), userMarkers[userId].getLatLng()]);
+                
+                if (pickupMarkers[userId]) {
+                    bounds.extend(pickupMarkers[userId].getLatLng());
+                }
+                
+                if (dropMarkers[userId]) {
+                    bounds.extend(dropMarkers[userId].getLatLng());
+                }
+                
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
         }
         
         // Update ride status
@@ -673,7 +819,7 @@
             currentRideStatus = status;
             
             $.ajax({
-                url: '/api/location/updateRideStatus',
+                url: '/api/location/updateStatus',
                 type: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify({

@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCelDo4I5cPQ72TfCTQW-arhPZ7ALNcp8w&libraries=places"></script>
+    <script src="https://unpkg.com/polyline-encoded"></script>
     
     <style>
         body {
@@ -171,6 +173,34 @@
         .pac-container {
             z-index: 1051 !important;
         }
+        
+        .location-selector {
+            margin: 10px 0;
+            text-align: center;
+        }
+        
+        .location-toggle {
+            display: inline-flex;
+            background-color: #f5f5f5;
+            border-radius: 25px;
+            padding: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .location-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: none;
+            background-color: transparent;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .location-btn.active {
+            background-color: #4CAF50;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -304,6 +334,73 @@
             // Create marker for drop location (initially hidden)
             dropMarker = L.marker([0, 0], {icon: dropIcon}).addTo(map);
             dropMarker.setOpacity(0);
+
+            // Add selection mode toggle for map clicks
+            const locationSelector = document.createElement('div');
+            locationSelector.className = 'location-selector';
+            locationSelector.innerHTML = `
+                <div class="location-toggle">
+                    <button id="pickupToggle" class="location-btn active">Set Pickup</button>
+                    <button id="dropToggle" class="location-btn">Set Drop</button>
+                </div>
+            `;
+            document.querySelector('.connection-form').after(locationSelector);
+            
+            // Default selection mode is pickup
+            let mapClickMode = 'pickup';
+            
+            // Add event listeners for toggle buttons
+            document.getElementById('pickupToggle').addEventListener('click', function() {
+                mapClickMode = 'pickup';
+                document.getElementById('pickupToggle').classList.add('active');
+                document.getElementById('dropToggle').classList.remove('active');
+            });
+            
+            document.getElementById('dropToggle').addEventListener('click', function() {
+                mapClickMode = 'drop';
+                document.getElementById('dropToggle').classList.add('active');
+                document.getElementById('pickupToggle').classList.remove('active');
+            });
+            
+            // Add map click listener to set location based on current mode
+            map.on('click', function(e) {
+                const lat = e.latlng.lat;
+                const lng = e.latlng.lng;
+                
+                if (mapClickMode === 'pickup') {
+                    // Set pickup location
+                    pickupLat = lat;
+                    pickupLng = lng;
+                    pickupMarker.setLatLng([lat, lng]);
+                    pickupMarker.setOpacity(1);
+                    
+                    // Reverse geocode to get address and update input field
+                    reverseGeocode(lat, lng, function(address) {
+                        document.getElementById('pickupLocation').value = address;
+                        pickupLocation = address; // Update the variable as well
+                        pickupMarker.bindPopup("Pickup: " + address).openPopup();
+                        if (dropLat !== 0 && dropLng !== 0) {
+                            drawRoute();
+                        }
+                    });
+                } else {
+                    // Set drop location
+                    dropLat = lat;
+                    dropLng = lng;
+                    dropMarker.setLatLng([lat, lng]);
+                    dropMarker.setOpacity(1);
+                    
+                    // Reverse geocode to get address and update input field
+                    reverseGeocode(lat, lng, function(address) {
+                        document.getElementById('dropLocation').value = address;
+                        dropLocation = address; // Update the variable as well
+                        dropMarker.bindPopup("Drop: " + address).openPopup();
+                        if (pickupLat !== 0 && pickupLng !== 0) {
+                            drawRoute();
+                        }
+                    });
+                }
+            });
         }
         
         // Start location tracking
@@ -348,9 +445,12 @@
                 dropMarker.bindPopup("Drop: " + dropLocation);
                 dropMarker.setOpacity(1);
                 
-                // Adjust map to show all markers
-                const bounds = L.latLngBounds([userMarker.getLatLng(), pickupMarker.getLatLng(), dropMarker.getLatLng()]);
-                map.fitBounds(bounds, { padding: [50, 50] });
+                // Adjust map to show all markers and draw route
+                if (pickupLat !== 0 && pickupLng !== 0) {
+                    const bounds = L.latLngBounds([userMarker.getLatLng(), pickupMarker.getLatLng(), dropMarker.getLatLng()]);
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                    drawRoute(); 
+                }
             });
             
             // Setup OTP generation button
@@ -368,8 +468,112 @@
                     callback(lat, lng);
                 } else {
                     console.error("Geocoding failed: " + status);
+                    updateStatus('Could not find address: ' + address, 'error');
                     // Use a default position if geocoding fails
-                    callback(20.5937, 78.9629); // Default to center of India
+                    // callback(20.5937, 78.9629); // Default to center of India
+                }
+            });
+        }
+        
+        // Draw route between pickup and drop locations
+        function drawRoute() {
+            if (pickupLat === 0 || pickupLng === 0 || dropLat === 0 || dropLng === 0) {
+                return; // Don't draw if we don't have both locations
+            }
+            
+            // Remove any existing route lines
+            if (window.routeLine) {
+                map.removeLayer(window.routeLine);
+            }
+            
+            // Get route using OpenStreetMap Directions API (via OSRM)
+            $.ajax({
+                url: `https://router.project-osrm.org/route/v1/driving/${pickupLng},${pickupLat};${dropLng},${dropLat}?overview=full&geometries=polyline`,
+                type: 'GET',
+                success: function(data) {
+                    if (data.routes && data.routes.length > 0) {
+                        // Decode the polyline
+                        const polyline = L.Polyline.fromEncoded(data.routes[0].geometry);
+                        const coordinates = polyline.getLatLngs();
+                        
+                        // Create a polyline with the coordinates
+                        window.routeLine = L.polyline(coordinates, {
+                            color: '#4CAF50',
+                            weight: 5,
+                            opacity: 0.7,
+                            lineJoin: 'round'
+                        }).addTo(map);
+                        
+                        // Update estimated distance and time if available
+                        if (data.routes[0].distance && data.routes[0].duration) {
+                            const distance = (data.routes[0].distance / 1000).toFixed(1); // km
+                            const duration = Math.ceil(data.routes[0].duration / 60); // minutes
+                            
+                            document.getElementById('totalDistance').textContent = distance + ' km';
+                            document.getElementById('estimatedRideTime').textContent = duration + ' min';
+                        }
+                        
+                        // Adjust map to show the entire route
+                        map.fitBounds(window.routeLine.getBounds(), { padding: [50, 50] });
+                    } else {
+                        // Fallback to straight line if route service fails
+                        drawFallbackRoute();
+                    }
+                },
+                error: function() {
+                    // Fallback to straight line if API call fails
+                    drawFallbackRoute();
+                }
+            });
+        }
+        
+        // Draw a simple straight line as fallback
+        function drawFallbackRoute() {
+            window.routeLine = L.polyline([
+                [pickupLat, pickupLng],
+                [dropLat, dropLng]
+            ], {
+                color: '#4CAF50',
+                weight: 5,
+                opacity: 0.7,
+                dashArray: '10, 10',
+                lineJoin: 'round'
+            }).addTo(map);
+            
+            // Calculate straight-line distance
+            const distance = map.distance(
+                [pickupLat, pickupLng],
+                [dropLat, dropLng]
+            ) / 1000; // Convert to km
+            
+            // Estimate time (assuming 40 km/h average speed)
+            const duration = Math.ceil((distance / 40) * 60); // minutes
+            
+            document.getElementById('totalDistance').textContent = distance.toFixed(1) + ' km';
+            document.getElementById('estimatedRideTime').textContent = duration + ' min';
+            
+            // Adjust map to show both points
+            map.fitBounds([
+                [pickupLat, pickupLng],
+                [dropLat, dropLng]
+            ], { padding: [50, 50] });
+        }
+
+        // Reverse geocode coordinates to get address
+        function reverseGeocode(lat, lng, callback) {
+            const geocoder = new google.maps.Geocoder();
+            const latlng = { lat: parseFloat(lat), lng: parseFloat(lng) };
+            geocoder.geocode({ location: latlng }, function(results, status) {
+                if (status === google.maps.GeocoderStatus.OK) {
+                    if (results[0]) {
+                        callback(results[0].formatted_address);
+                    } else {
+                        console.error('No results found for reverse geocoding');
+                        callback('Unknown location');
+                    }
+                } else {
+                    console.error('Reverse geocoding failed due to: ' + status);
+                    callback('Unknown location');
                 }
             });
         }
@@ -390,14 +594,24 @@
                         // Center map on user location
                         map.setView([lat, lng], 14);
                         
-                        // If pickup coordinates are not set yet, use current location as default
-                        if (pickupLat === 0 && pickupLng === 0) {
-                            pickupLat = lat;
-                            pickupLng = lng;
+                        // Always use current location as default pickup location when starting up
+                        // This ensures we have a default pickup location ready
+                        pickupLat = lat;
+                        pickupLng = lng;
+                        const pickupInput = document.getElementById('pickupLocation');
+                        
+                        reverseGeocode(lat, lng, function(address) {
+                            pickupInput.value = address;
+                            pickupLocation = address; // Update variable
                             pickupMarker.setLatLng([lat, lng]);
-                            pickupMarker.bindPopup("Pickup: Your current location");
+                            pickupMarker.bindPopup("Pickup: " + address).openPopup();
                             pickupMarker.setOpacity(1);
-                        }
+                            
+                            // If drop location is already set (unlikely on startup), draw route
+                            if (dropLat !== 0 && dropLng !== 0) {
+                                drawRoute();
+                            }
+                        });
                         
                         // Send initial location update
                         sendUserLocation(lat, lng);
@@ -411,7 +625,7 @@
                 updateStatus('Geolocation is not supported by this browser.', 'error');
             }
         }
-        
+
         // Start periodic location updates
         function startLocationUpdates() {
             // Clear any existing intervals
@@ -637,16 +851,21 @@
         // Initialize the page
         document.addEventListener('DOMContentLoaded', function() {
             initMap();
+            initPlacesAutocomplete();
             
             // Connect button click handler
             document.getElementById('connectBtn').addEventListener('click', function() {
                 connect();
             });
+            
+            // Get user's current location on page load to set default pickup location
+            getUserLocation();
         });
     </script>
     
     <!-- Google Maps Places API for location autocomplete -->
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCelDo4I5cPQ72TfCTQW-arhPZ7ALNcp8w&libraries=places&callback=initPlacesAutocomplete" async defer></script>
+    <script src="https://unpkg.com/polyline-encoded"></script>
     
     <script>
         function initPlacesAutocomplete() {
@@ -654,9 +873,49 @@
             const pickupInput = document.getElementById('pickupLocation');
             const pickupAutocomplete = new google.maps.places.Autocomplete(pickupInput);
             
+            // Add event listener for place selection
+            pickupAutocomplete.addListener('place_changed', function() {
+                const place = pickupAutocomplete.getPlace();
+                if (place.geometry) {
+                    const lat = place.geometry.location.lat();
+                    const lng = place.geometry.location.lng();
+                    pickupLat = lat;
+                    pickupLng = lng;
+                    pickupMarker.setLatLng([lat, lng]);
+                    pickupMarker.setOpacity(1);
+                    pickupMarker.bindPopup("Pickup: " + place.formatted_address).openPopup();
+                    pickupLocation = place.formatted_address;
+                    
+                    // If drop location is set, draw route
+                    if (dropLat !== 0 && dropLng !== 0) {
+                        drawRoute();
+                    }
+                }
+            });
+            
             // Initialize autocomplete for drop location
             const dropInput = document.getElementById('dropLocation');
             const dropAutocomplete = new google.maps.places.Autocomplete(dropInput);
+            
+            // Add event listener for place selection
+            dropAutocomplete.addListener('place_changed', function() {
+                const place = dropAutocomplete.getPlace();
+                if (place.geometry) {
+                    const lat = place.geometry.location.lat();
+                    const lng = place.geometry.location.lng();
+                    dropLat = lat;
+                    dropLng = lng;
+                    dropMarker.setLatLng([lat, lng]);
+                    dropMarker.setOpacity(1);
+                    dropMarker.bindPopup("Drop: " + place.formatted_address).openPopup();
+                    dropLocation = place.formatted_address;
+                    
+                    // If pickup location is set, draw route
+                    if (pickupLat !== 0 && pickupLng !== 0) {
+                        drawRoute();
+                    }
+                }
+            });
         }
     </script>
 </body>
